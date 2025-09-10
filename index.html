@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Mask Effect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrollbars */
+            cursor: none; /* Hide the default cursor */
+        }
+
+        /* The bottom layer with the blue background */
+        #bottom-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0055d4; /* A nice, deep blue */
+            z-index: 1;
+        }
+
+        /* The canvas that will act as the top, white layer and our mask */
+        #mask-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+
+        /* The container for the text content, which sits on top of everything */
+        #text-content {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            /* This is crucial: it makes the text layer "invisible" to mouse events,
+               so they pass through to the canvas underneath. */
+            /* pointer-events: none; */
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Layer 2: The blue background where an animation would go -->
+    <div id="bottom-layer" class="flex items-center justify-center p-8">
+        <div class="max-w-2xl text-center text-white">
+            <h2 class="text-4xl md:text-6xl font-bold mb-4">The Hidden Layer</h2>
+            <p class="text-lg md:text-xl opacity-80">
+                This is the content that lives underneath. As you move your cursor, you're not just changing colors, you're peering into a different space. This technique can be used to create mystery and encourage exploration on a page.
+            </p>
+        </div>
+    </div>
+
+    <!-- Layer 1 (Top): The white canvas that gets "erased" by the cursor -->
+    <canvas id="mask-canvas"></canvas>
+
+    <!-- The text content that sits above all layers -->
+    <div id="text-content" class="flex flex-col items-center justify-center p-8">
+        <div class="max-w-2xl text-center text-gray-800" style="pointer-events: none;">
+            <h1 class="text-4xl md:text-6xl font-bold mb-4">Uncover the Depths</h1>
+            <p class="text-lg md:text-xl text-gray-600">
+                Move your cursor across the screen to reveal the hidden layer beneath. This effect uses a canvas element to create a dynamic, pixelated mask, offering a unique way to interact with content. Imagine the possibilities for interactive stories, product reveals, or creative portfolios.
+            </p>
+        </div>
+        <div class="mt-8">
+             <a href="https://www.google.com" target="_blank" rel="noopener noreferrer" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
+                Go to Google
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mask-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Configuration ---
+        const PIXEL_SIZE = 25; // The size of each square in the grid
+        const WAVE_THICKNESS = 60; // The thickness of the ripple ring in pixels
+        const WAVE_SPEED = 2.5; // How fast the ripple expands
+        const WAVE_LIFESPAN = 120; // How many frames a ripple lasts
+        const MOUSE_MOVE_THRESHOLD = 15; // Min pixels mouse must move to create a new ripple
+
+        // --- State ---
+        let mouse = { x: -500, y: -500 }; // Initialize mouse off-screen
+        let lastMousePos = { x: -500, y: -500 };
+        let waves = []; // Array to store active ripple objects
+
+        // Function to set canvas size and handle window resizing
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resizeCanvas);
+
+        document.addEventListener('mousemove', (e) => {
+            const dx = e.clientX - lastMousePos.x;
+            const dy = e.clientY - lastMousePos.y;
+            // Only add a new wave if the mouse has moved a certain distance.
+            // This prevents creating too many ripples and keeps the effect clean.
+            if (Math.sqrt(dx * dx + dy * dy) > MOUSE_MOVE_THRESHOLD) {
+                waves.push({
+                    x: e.clientX,
+                    y: e.clientY,
+                    radius: 0,
+                    life: WAVE_LIFESPAN
+                });
+                lastMousePos = { x: e.clientX, y: e.clientY };
+            }
+            // We still track the main mouse position to keep a constant hole under the cursor
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        document.addEventListener('mouseleave', () => {
+             // Move mouse off-screen to hide the hole
+             mouse.x = -500;
+             mouse.y = -500;
+        });
+
+
+        // The main drawing loop
+        function draw() {
+            // Step 1: Fill the entire canvas with a solid white color.
+            // This "resets" the top layer on every frame.
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Step 2: Update all active waves.
+            // We loop backwards to safely remove items from the array while iterating.
+            for (let i = waves.length - 1; i >= 0; i--) {
+                const wave = waves[i];
+                wave.radius += WAVE_SPEED; // Expand the ripple
+                wave.life--; // Reduce its lifespan
+                
+                // Remove the wave if its life is over
+                if (wave.life <= 0) {
+                    waves.splice(i, 1);
+                }
+            }
+
+            // Step 3: Iterate over the grid of pixels on the canvas.
+            // For performance, we could calculate a bounding box of all waves, but for this effect,
+            // checking the whole screen is more reliable.
+            for (let y = 0; y < canvas.height; y += PIXEL_SIZE) {
+                for (let x = 0; x < canvas.width; x += PIXEL_SIZE) {
+                    const cellCenterX = x + PIXEL_SIZE / 2;
+                    const cellCenterY = y + PIXEL_SIZE / 2;
+                    let isCleared = false;
+
+                    // First, check for the main hole directly under the cursor
+                    const dxMouse = cellCenterX - mouse.x;
+                    const dyMouse = cellCenterY - mouse.y;
+                    if (Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse) < WAVE_THICKNESS * 0.8) {
+                        isCleared = true;
+                    }
+
+                    // If not under the main cursor, check if the pixel is part of an expanding ripple
+                    if (!isCleared) {
+                        for (const wave of waves) {
+                            const dxWave = cellCenterX - wave.x;
+                            const dyWave = cellCenterY - wave.y;
+                            const distance = Math.sqrt(dxWave * dxWave + dyWave * dyWave);
+
+                            // Check if the cell is within the wave's expanding ring
+                            if (distance > wave.radius && distance < wave.radius + WAVE_THICKNESS) {
+                                // Add randomness to create the "erratic" pixelated edge
+                                if (Math.random() > 0.15) {
+                                    isCleared = true;
+                                    break; // Cell is cleared, no need to check other waves
+                                }
+                            }
+                        }
+                    }
+
+                    // Step 4: If the cell should be cleared, erase that part of the white canvas.
+                    if (isCleared) {
+                        ctx.clearRect(x, y, PIXEL_SIZE, PIXEL_SIZE);
+                    }
+                }
+            }
+
+            // Request the next frame to continue the animation loop
+            requestAnimationFrame(draw);
+        }
+
+        // Initial setup
+        resizeCanvas(); // Set initial size
+        draw(); // Start the animation loop
+    </script>
+
+</body>
+</html>
+
