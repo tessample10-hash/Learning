@@ -1,213 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Mask Effect</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevents scrollbars */
-            cursor: none; /* Hide the default cursor */
-        }
-
-        /* The bottom layer with the blue background */
-        #bottom-layer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #0055d4; /* A nice, deep blue */
-            z-index: 1;
-        }
-
-        /* The canvas that will act as the top, white layer and our mask */
-        #mask-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 2;
-        }
-
-        /* The container for the text content, which sits on top of everything */
-        #text-content {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            /* This is crucial: it makes the text layer "invisible" to mouse events,
-               so they pass through to the canvas underneath. */
-            /* pointer-events: none; */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Name | Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
-<body class="bg-gray-100">
+<body>
 
-    <!-- Layer 2: The blue background where an animation would go -->
-    <div id="bottom-layer" class="flex items-center justify-center p-8">
-        <div class="max-w-2xl text-center text-white">
-            <h2 class="text-4xl md:text-6xl font-bold mb-4">The Hidden Layer</h2>
-            <p class="text-lg md:text-xl opacity-80">
-                This is the content that lives underneath. As you move your cursor, you're not just changing colors, you're peering into a different space. This technique can be used to create mystery and encourage exploration on a page.
-            </p>
-        </div>
-    </div>
+<header class="fade-in">
+  <div class="logo fade-in"><a href="index.html">Pallavi Singh</a></div>
+  <nav class="fade-in">
+    <ul class="fade-in">
+      <li class="active fade-in"><a href="#about">About</a></li>
+      <li class="fade-in"><a href="work.html">Work</a></li>
+      <li class="fade-in"><a href="#learning">Observations</a></li>
+      <li class="fade-in"><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+</header>
 
-    <!-- Layer 1 (Top): The white canvas that gets "erased" by the cursor -->
-    <canvas id="mask-canvas"></canvas>
+<div class="content fade-in">
+    <h2 class="fade-in">A strategic product designer with deep expertise in complex product ecosystems. <br><br>
+        I transform challenging workflows into differentiating experiences — driving adoption, productivity and growth.</h2>
+</div>
 
-    <!-- The text content that sits above all layers -->
-    <div id="text-content" class="flex flex-col items-center justify-center p-8">
-        <div class="max-w-2xl text-center text-gray-800" style="pointer-events: none;">
-            <h1 class="text-4xl md:text-6xl font-bold mb-4">Uncover the Depths</h1>
-            <p class="text-lg md:text-xl text-gray-600">
-                Move your cursor across the screen to reveal the hidden layer beneath. This effect uses a canvas element to create a dynamic, pixelated mask, offering a unique way to interact with content. Imagine the possibilities for interactive stories, product reveals, or creative portfolios.
-            </p>
-        </div>
-        <div class="mt-8">
-             <a href="https://www.google.com" target="_blank" rel="noopener noreferrer" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300">
-                Go to Google
-            </a>
-        </div>
-    </div>
+<div id="scroll-progress-container" class="fade-in">
+  <div id="scroll-progress" class="fade-in"></div>
+</div>
+<div class="blue-layer">
+  <div class="blue-content">
+    <h1>The Hidden Layer</h1>
+    <p>
+      This is some sample text sitting beneath the white mask.  
+      Move your cursor to uncover it gradually.
+    </p>
+  </div>
+</div>
+<canvas></canvas>
 
-    <script>
-        const canvas = document.getElementById('mask-canvas');
-        const ctx = canvas.getContext('2d');
-
-        // --- Configuration ---
-        const BASE_RADIUS = 180; // The base size of the blob
-        const RADIUS_WOBBLE = 70; // How much the blob's radius will fluctuate
-        const WOBBLE_SPEED = 0.002; // How fast the blob shape changes
-        const BLOB_POINTS = 24; // Number of points used to draw the blob. More points = smoother.
-        const LERP_SPEED = 0.08; // How smoothly the blob follows the cursor
-
-        // --- Text Content (moved from HTML) ---
-        const titleText = "Uncover the Depths";
-        const paragraphText = "Move your cursor across the screen to reveal the hidden layer beneath. This effect uses a canvas element to create a dynamic, pixelated mask, offering a unique way to interact with content. Imagine the possibilities for interactive stories, product reveals, or creative portfolios.";
-
-        // --- State ---
-        let mouse = { x: -500, y: -500 }; // Initialize mouse off-screen
-        let smoothedMouse = { x: -500, y: -500 }; // For smoother following
-
-        // --- Helper Functions ---
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-
-        function lerp(start, end, amt) {
-            return (1 - amt) * start + amt * end;
-        }
-        
-        // Helper function to draw wrapped text on the canvas
-        function drawWrappedText(text, x, y, maxWidth, lineHeight) {
-            const words = text.split(' ');
-            let line = '';
-            let lines = [];
-
-            for (let n = 0; n < words.length; n++) {
-                const testLine = line + words[n] + ' ';
-                const metrics = ctx.measureText(testLine);
-                const testWidth = metrics.width;
-                if (testWidth > maxWidth && n > 0) {
-                    lines.push(line);
-                    line = words[n] + ' ';
-                } else {
-                    line = testLine;
-                }
-            }
-            lines.push(line);
-
-            const startY = y - (lines.length - 1) * lineHeight / 2;
-            for(let i=0; i < lines.length; i++) {
-                ctx.fillText(lines[i], x, startY + (i * lineHeight));
-            }
-        }
-
-        // --- Event Listeners ---
-        window.addEventListener('resize', resizeCanvas);
-
-        document.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-        });
-
-        document.addEventListener('mouseleave', () => {
-             mouse.x = -500;
-             mouse.y = -500;
-        });
-
-
-        // The main drawing loop
-        function draw() {
-            const time = Date.now() * WOBBLE_SPEED;
-            
-            // Smoothly interpolate the mouse position for a more fluid feel
-            smoothedMouse.x = lerp(smoothedMouse.x, mouse.x, LERP_SPEED);
-            smoothedMouse.y = lerp(smoothedMouse.y, mouse.y, LERP_SPEED);
-
-            // Hide the original HTML text content so we can draw it on the canvas
-            const textContentDiv = document.querySelector('#text-content .max-w-2xl');
-            if (textContentDiv) textContentDiv.style.opacity = '0';
-
-
-            // Step 1: Fill the canvas with white and draw the top-layer text
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Title
-            ctx.fillStyle = '#1f2937'; // text-gray-800
-            ctx.textAlign = 'center';
-            const titleSize = window.innerWidth < 768 ? 48 : 64;
-            ctx.font = `bold ${titleSize}px Inter`;
-            ctx.fillText(titleText, canvas.width / 2, canvas.height / 2 - 80);
-
-            // Draw Paragraph
-            ctx.fillStyle = '#4b5563'; // text-gray-600
-            const paragraphSize = window.innerWidth < 768 ? 18 : 20;
-            ctx.font = `${paragraphSize}px Inter`;
-            const maxWidth = Math.min(canvas.width - 60, 650); // max-w-2xl
-            drawWrappedText(paragraphText, canvas.width / 2, canvas.height / 2 + 30, maxWidth, paragraphSize * 1.6);
-
-
-            // Step 2: Erase a smooth, wobbly blob shape from the canvas
-            ctx.save();
-            ctx.globalCompositeOperation = 'destination-out';
-            
-            ctx.beginPath();
-            for (let i = 0; i < BLOB_POINTS; i++) {
-                const angle = (i / BLOB_POINTS) * Math.PI * 2;
-                const wobble = Math.sin(angle * 5 + time) * (RADIUS_WOBBLE / 2) + Math.cos(angle * 2.5 + time) * (RADIUS_WOBBLE / 2);
-                const radius = BASE_RADIUS + wobble;
-                const x = smoothedMouse.x + Math.cos(angle) * radius;
-                const y = smoothedMouse.y + Math.sin(angle) * radius;
-
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            
-            ctx.closePath();
-            ctx.fillStyle = 'black';
-            ctx.fill();
-            ctx.restore();
-
-            // Request the next frame to continue the animation loop
-            requestAnimationFrame(draw);
-        }
-
-        // Initial setup
-        resizeCanvas();
-        draw();
-    </script>
-
+<script src="sketch.js"></script>
+<script src="script.js"></script>
+<script src="fadein.js"></script>
 </body>
 </html>
-
